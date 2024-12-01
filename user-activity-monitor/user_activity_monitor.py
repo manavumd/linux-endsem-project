@@ -20,10 +20,14 @@ def log_event(event_type, user, details=""):
         logfile.write(json.dumps(event) + "\n")
 
 def monitor_login_logout():
-    """Monitor login/logout events by parsing /var/log/auth.log."""
     global last_auth_log_pos, processed_login_events
     with open("/var/log/auth.log", "r") as f:
-        f.seek(last_auth_log_pos)
+        # Start reading from the end of the file if it's the first run
+        if last_auth_log_pos == 0:
+            f.seek(0, os.SEEK_END)
+        else:
+            f.seek(last_auth_log_pos)
+
         lines = f.readlines()
         last_auth_log_pos = f.tell()
 
@@ -34,13 +38,13 @@ def monitor_login_logout():
                 if event_id not in processed_login_events:
                     processed_login_events.add(event_id)
                     log_event("login", user)
-                    configure_prompt_command(user)
             elif "session closed" in line:
                 user = line.split(" ")[-1].strip()
                 event_id = f"logout-{user}"
                 if event_id not in processed_login_events:
                     processed_login_events.add(event_id)
                     log_event("logout", user)
+
 
 def configure_prompt_command(user):
     """Configure PROMPT_COMMAND for the specified user."""
