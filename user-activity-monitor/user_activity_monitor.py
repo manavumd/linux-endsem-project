@@ -36,7 +36,8 @@ def monitor_commands():
         for line in lines[-10:]:
             if "exe=" in line:
                 cmd = line.split("exe=")[-1].split(" ")[0]
-                log_event("command", "unknown", details=cmd)
+                user = line.split("AUID=")[-1].split(" ")[0]
+                log_event("command", user, details=cmd)
 
 def main():
     while True:
