@@ -1,13 +1,17 @@
 import os
 import time
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 LOG_FILE = "/var/log/user_activity.log"
 
+# Global variables to track the last read position
+last_auth_log_pos = 0
+last_audit_log_pos = 0
+
 def log_event(event_type, user, details=""):
     event = {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "event_type": event_type,
         "user": user,
         "host": os.uname()[1],
@@ -17,10 +21,13 @@ def log_event(event_type, user, details=""):
         logfile.write(json.dumps(event) + "\n")
 
 def monitor_login_logout():
-    # Check `/var/log/auth.log` or equivalent for login/logout events
+    global last_auth_log_pos
     with open("/var/log/auth.log", "r") as f:
+        f.seek(last_auth_log_pos)
         lines = f.readlines()
-        for line in lines[-10:]:  # Tail the last 10 lines for example
+        last_auth_log_pos = f.tell()
+
+        for line in lines:
             if "session opened" in line:
                 user = line.split(" ")[-1].strip()
                 log_event("login", user)
@@ -29,17 +36,24 @@ def monitor_login_logout():
                 log_event("logout", user)
 
 def monitor_commands():
-    # Example: Capture commands via audit logs (requires auditd)
-    os.system("auditctl -w /bin -p war")  # Monitor commands in `/bin`
+    global last_audit_log_pos
     with open("/var/log/audit/audit.log", "r") as f:
+        f.seek(last_audit_log_pos)
         lines = f.readlines()
-        for line in lines[-10:]:
+        last_audit_log_pos = f.tell()
+
+        for line in lines:
             if "exe=" in line:
-                cmd = line.split("exe=")[-1].split(" ")[0]
-                user = line.split("AUID=")[-1].split(" ")[0]
+                cmd = line.split("exe=")[-1].split(" ")[0].strip('"')
+                user = line.split("AUID=")[-1].split(" ")[0].strip('"')
                 log_event("command", user, details=cmd)
 
+def setup_audit_rules():
+    # Add the audit rule only once
+    os.system("auditctl -w /bin -p war")
+
 def main():
+    setup_audit_rules()
     while True:
         monitor_login_logout()
         monitor_commands()
