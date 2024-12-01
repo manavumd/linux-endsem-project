@@ -58,7 +58,7 @@ def monitor_commands():
                     log_event("command", user, details=cmd)
 
 def setup_audit_rules():
-    os.system("auditctl -a always,exit -S execve -F euid>=1000 -F euid!=4294967295 -k user-commands")
+    os.system("auditctl -a always,exit -F arch=b64 -S execve -k user-commands")
 
 def main():
     setup_audit_rules()
