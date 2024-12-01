@@ -1,15 +1,14 @@
 import os
-import time
 import json
+import time
 from datetime import datetime, timezone
 
 LOG_FILE = "/var/log/user_activity.log"
 last_auth_log_pos = 0
-last_audit_log_pos = 0
-processed_events = set()
 processed_login_events = set()
 
 def log_event(event_type, user, details=""):
+    """Log events to the centralized log file."""
     event = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "event_type": event_type,
@@ -21,6 +20,7 @@ def log_event(event_type, user, details=""):
         logfile.write(json.dumps(event) + "\n")
 
 def monitor_login_logout():
+    """Monitor login/logout events by parsing /var/log/auth.log."""
     global last_auth_log_pos, processed_login_events
     with open("/var/log/auth.log", "r") as f:
         f.seek(last_auth_log_pos)
@@ -34,6 +34,7 @@ def monitor_login_logout():
                 if event_id not in processed_login_events:
                     processed_login_events.add(event_id)
                     log_event("login", user)
+                    configure_prompt_command(user)
             elif "session closed" in line:
                 user = line.split(" ")[-1].strip()
                 event_id = f"logout-{user}"
@@ -41,30 +42,30 @@ def monitor_login_logout():
                     processed_login_events.add(event_id)
                     log_event("logout", user)
 
-def monitor_commands():
-    global last_audit_log_pos, processed_events
-    with open("/var/log/audit/audit.log", "r") as f:
-        f.seek(last_audit_log_pos)
-        lines = f.readlines()
-        last_audit_log_pos = f.tell()
+def configure_prompt_command(user):
+    """Configure PROMPT_COMMAND for the specified user."""
+    logging_cmd = (
+        'history 1 | {{ read x cmd; echo "$(whoami) $(date +"%Y-%m-%d %H:%M:%S") '
+        f'$(hostname) $cmd" >> {LOG_FILE}; }}'
+    )
+    user_bashrc = f"/home/{user}/.bashrc"
+    if os.path.exists(user_bashrc):
+        with open(user_bashrc, "a") as f:
+            f.write(f"\nexport PROMPT_COMMAND='{logging_cmd}'\n")
+        log_event("info", user, f"PROMPT_COMMAND configured for {user}")
 
-        for line in lines:
-            if "execve" in line:
-                cmd = line.split("exe=")[-1].split(" ")[0].strip('"')
-                user = line.split("uid=")[-1].split(" ")[0].strip('"')
-                event_id = f"{user}-{cmd}"
-                if event_id not in processed_events:
-                    processed_events.add(event_id)
-                    log_event("command", user, details=cmd)
-
-def setup_audit_rules():
-    os.system("auditctl -a always,exit -F arch=b64 -S execve -k user-commands")
+def ensure_log_file_exists():
+    """Ensure the log file exists and is writable by all."""
+    if not os.path.exists(LOG_FILE):
+        with open(LOG_FILE, "w"):
+            pass
+    os.chmod(LOG_FILE, 0o666)  # Allow read/write access for all users
 
 def main():
-    setup_audit_rules()
+    ensure_log_file_exists()
+    print(f"Monitoring login/logout and commands. Logs stored in {LOG_FILE}")
     while True:
         monitor_login_logout()
-        monitor_commands()
         time.sleep(10)
 
 if __name__ == "__main__":
