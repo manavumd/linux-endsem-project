@@ -2,6 +2,7 @@ import os
 import json
 import time
 from datetime import datetime, timezone
+import subprocess
 
 LOG_FILE = "/var/log/user_activity.log"
 last_auth_log_pos = 0
@@ -51,7 +52,11 @@ def monitor_login_logout():
 
 def configure_prompt_command(user):
     """Configure PROMPT_COMMAND for the specified user."""
-    logging_cmd = 'history 1 | { read x cmd; echo "{\"timestamp\": \"$(date -u +\"%Y-%m-%dT%H:%M:%SZ\")\", \"event_type\": \"command\", \"user\": \"$(whoami)\", \"host\": \"$(hostname)\", \"details\": \"${cmd}\"}" >> /var/log/user_activity.log; }'
+    logging_cmd = (
+        'history 1 | { read x cmd; echo "{\\"timestamp\\": \\"$(date -u +\\"%Y-%m-%dT%H:%M:%SZ\\")\\", '
+        '\\"event_type\\": \\"command\\", \\"user\\": \\"$(whoami)\\", \\"host\\": \\"$(hostname)\\", '
+        '\\"details\\": \\"${cmd}\\"}" >> /var/log/user_activity.log; }'
+    )
     user_bashrc = f"/home/{user}/.bashrc"
 
     # Check if the file exists
@@ -68,6 +73,13 @@ def configure_prompt_command(user):
         with open(user_bashrc, "a") as f:
             f.write(f"\nexport PROMPT_COMMAND='{logging_cmd}'\n")
         log_event("info", user, f"PROMPT_COMMAND configured for {user}")
+
+        # Automatically source the updated .bashrc
+        try:
+            subprocess.run(["su", "-", user, "-c", "source ~/.bashrc"], check=True)
+            log_event("info", user, f".bashrc sourced for {user}")
+        except subprocess.CalledProcessError as e:
+            log_event("error", user, f"Failed to source .bashrc: {e}")
 
 
 def ensure_log_file_exists():
