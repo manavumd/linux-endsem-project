@@ -51,14 +51,11 @@ def monitor_login_logout():
 
 def configure_prompt_command(user):
     """Configure PROMPT_COMMAND for the specified user."""
-    logging_cmd = (
-        'history 1 | {{ read x cmd; echo "$(whoami) $(date +"%Y-%m-%d %H:%M:%S") '
-        f'$(hostname) $cmd" >> {LOG_FILE}; }}'
-    )
+    logging_cmd = 'history 1 | { read x cmd; echo "{\"timestamp\": \"$(date -u +\"%Y-%m-%dT%H:%M:%SZ\")\", \"event_type\": \"command\", \"user\": \"$(whoami)\", \"host\": \"$(hostname)\", \"details\": \"${cmd}\"}" >> /var/log/user_activity.log; }'
     user_bashrc = f"/home/{user}/.bashrc"
     if os.path.exists(user_bashrc):
         with open(user_bashrc, "a") as f:
-            f.write(f"\nexport PROMPT_COMMAND='{logging_cmd}'\n")
+            f.write(f"\nexport PROMPT_COMMAND={logging_cmd}\n")
         log_event("info", user, f"PROMPT_COMMAND configured for {user}")
 
 def ensure_log_file_exists():
