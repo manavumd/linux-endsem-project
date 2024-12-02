@@ -1,0 +1,10 @@
+Package: user-activity-monitor
+Version: 1.0.0
+Section: admin
+Priority: optional
+Architecture: all
+Depends: python3, python3-pip
+Maintainer: Manav Gupta manavg@umd.edu
+Description: User Activity Monitor
+ This package installs a Python-based user activity monitor.
+ It configures a logging system for tracking commands and user activities.

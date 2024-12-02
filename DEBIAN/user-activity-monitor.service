@@ -1,0 +1,14 @@
+[Unit]
+Description=User Activity Monitor Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/user_activity_monitor.py
+Restart=always
+RestartSec=5
+User=root
+WorkingDirectory=/usr/local/bin
+
+[Install]
+WantedBy=multi-user.target
