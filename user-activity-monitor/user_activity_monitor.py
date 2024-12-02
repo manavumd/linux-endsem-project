@@ -15,7 +15,8 @@ def log_event(event_type, user, details=""):
         "event_type": event_type,
         "user": user.strip(),
         "host": os.uname()[1],
-        "details": details.strip()
+        "details": details.strip(),
+        "count": 1
     }
     with open(LOG_FILE, "a") as logfile:
         logfile.write(json.dumps(event) + "\n")
