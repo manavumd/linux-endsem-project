@@ -33,13 +33,15 @@ def monitor_login_logout():
 
         for line in lines:
             if "session opened" in line:
-                user = line.split(" ")[-1].strip()
+                user_raw = line.split(" ")[-1].strip()
+                user = user_raw.split("(")[0]
                 event_id = f"login-{user}"
                 if event_id not in processed_login_events:
                     processed_login_events.add(event_id)
                     log_event("login", user)
             elif "session closed" in line:
-                user = line.split(" ")[-1].strip()
+                user_raw = line.split(" ")[-1].strip()
+                user = user_raw.split("(")[0]
                 event_id = f"logout-{user}"
                 if event_id not in processed_login_events:
                     processed_login_events.add(event_id)
